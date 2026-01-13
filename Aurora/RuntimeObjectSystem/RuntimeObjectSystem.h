@@ -47,8 +47,13 @@ public:
 	RuntimeObjectSystem();
 	virtual ~RuntimeObjectSystem();
 
+#if RCCPP_ALLOCATOR_INTERFACE
+	// Initialise RuntimeObjectSystem. pLogger should be deleted by creator
+	virtual bool Initialise( ICompilerLogger * pLogger, SystemTable* pSystemTable, IObjectAllocator* pCustomAllocator = nullptr );
+#else
 	// Initialise RuntimeObjectSystem. pLogger should be deleted by creator
 	virtual bool Initialise( ICompilerLogger * pLogger, SystemTable* pSystemTable );
+#endif
 
 	virtual bool GetIsCompiling()
 	{
@@ -67,6 +72,11 @@ public:
 	{
 		return m_pFileChangeNotifier;
 	}
+    virtual ICompilerLogger*     GetLogger() const
+    {
+        return m_pCompilerLogger;
+    }
+
 
 	virtual void CompileAll( bool bForceRecompile );
 
@@ -131,8 +141,8 @@ public:
     virtual bool TestBuildCallback(const char* file, TestBuildResult type);
     virtual bool TestBuildWaitAndUpdate();
 
-    // FindFile - attempts to find the file in a source directory
-    virtual FileSystemUtils::Path   FindFile( const FileSystemUtils::Path& input );
+    // FindFile - attempts to find the file in a source directory, if pFound not NULL returns if file found
+    virtual FileSystemUtils::Path   FindFile( const FileSystemUtils::Path& input, bool* pFound = NULL );
 
     // AddPathToSourceSearch - adds a path to help source search. Can be called multiple times to add paths.
     virtual void AddPathToSourceSearch( const char* path );
@@ -154,6 +164,9 @@ private:
 	typedef std::pair<FileSystemUtils::Path,FileSystemUtils::Path>          TFileToFilePair;
 	typedef std::pair<TFileToFilesMap::iterator,TFileToFilesMap::iterator>  TFileToFilesEqualRange;
 
+	// AddToRuntimeFileListImp & RemoveFromRuntimeFileList do not change filename to OS canonical case
+    void AddToRuntimeFileListImp(      const FileSystemUtils::Path& filename, unsigned short projectId_ = 0 );
+    void RemoveFromRuntimeFileListImp( const FileSystemUtils::Path& filename, unsigned short projectId_ = 0 );
 	void StartRecompile();
 	void SetupRuntimeFileTracking( const IAUDynArray<IObjectConstructor*>& constructors_ );
 
@@ -205,7 +218,6 @@ private:
     // File mappings - we need to map from compiled path to a potentially different path
     // on the system the code is running on
     TFileMap                m_FoundSourceDirectoryMappings; // mappings between directories found and requested
-    unsigned int            m_NumNotFoundSourceFiles;       // count of source directories not found
 
     // platform implementation in RuntimeObjectSystem_Plaform*.cpp
 public:

@@ -23,6 +23,36 @@
 #include "../IRuntimeObjectSystem.h"
 
 
+#if RCCPP_ALLOCATOR_INTERFACE
+void* DefaultObjectAllocator::Allocate( size_t size, size_t alignment )
+{
+#ifdef _WIN32
+	return _aligned_malloc( size, alignment );
+#else
+	void pRet;
+	if ( alignment <= size && alignment <= alignof(int64_t) )
+	{
+		pRet = malloc( size );
+	}
+	else
+	{
+		const int retval = posix_memalign( &pRet, alignment, size );
+		(void)retval;
+	}
+	return pRet;
+#endif
+}
+void DefaultObjectAllocator::Free( void* p )
+{
+#ifdef _WIN32
+	_aligned_free( p );
+#else
+	free( p );
+#endif
+}
+#endif
+
+
 IObjectConstructor* ObjectFactorySystem::GetConstructor( const char* type ) const
 {
 	CONSTRUCTORMAP::const_iterator found =  m_ConstructorIds.find( type );
@@ -210,7 +240,7 @@ void ObjectFactorySystem::ProtectedObjectSwapper::ProtectedFunc()
 				if( pOldObject )
 				{
 					pOldObject->_isRuntimeDelete = true;
-					delete pOldObject;
+					pOldConstructor->Destroy( pOldObject );
 				}
 			}
 			pOldConstructor->ClearIfAllDeleted();
@@ -223,7 +253,7 @@ bool ObjectFactorySystem::HandleRedoUndo( const TConstructors& constructors )
 {
 	if( constructors.size() == 0 )
 	{
-		m_pLogger->LogInfo( "ObjectFactorySystem::HandleRedoUndo() called with no constructors.\n" );
+		if( m_pLogger ) m_pLogger->LogInfo( "ObjectFactorySystem::HandleRedoUndo() called with no constructors.\n" );
 		return true;
 	}
 
@@ -247,13 +277,13 @@ void ObjectFactorySystem::AddConstructors( IAUDynArray<IObjectConstructor*> &con
 {
 	if( constructors.Size() == 0 )
 	{
-		m_pLogger->LogInfo( "ObjectFactorySystem::AddConstructors() called with no constructors.\n" );
+		if( m_pLogger ) m_pLogger->LogInfo( "ObjectFactorySystem::AddConstructors() called with no constructors.\n" );
 		return;
 	}
 
 	if( m_HistoryCurrentLocation )
 	{
-		m_pLogger->LogInfo( "Need to fast forward undo system to current state of source code.\n" );
+		if( m_pLogger ) m_pLogger->LogInfo( "Need to fast forward undo system to current state of source code.\n" );
 		while( RedoObjectConstructorChange() ) {}
 	}
 

@@ -20,11 +20,16 @@
 #ifndef OBJECTINTERFACE_INCLUDED
 #define OBJECTINTERFACE_INCLUDED
 
+#ifndef RCCPP_ALLOCATOR_INTERFACE
+#define RCCPP_ALLOCATOR_INTERFACE 0
+#endif
+
 #include <vector>
 #include <stdlib.h>
 
 struct SystemTable; //This is the interface to your own engine code, which you need to define yourself if required.
 struct IObject;
+struct IRuntimeObjectSystem;
 
 
 const size_t InvalidId = (size_t)-1;
@@ -64,21 +69,33 @@ struct ObjectId
 	}
 };
 
-struct SourceDependencyInfo;
+#if RCCPP_ALLOCATOR_INTERFACE
+struct IObjectAllocator
+{
+	virtual ~IObjectAllocator() = default;
+	virtual void* Allocate( size_t size, size_t alignment ) = 0;
+	virtual void Free( void* p ) = 0;
+};
+#endif
+
+struct RuntimeTackingInfo;
 
 struct IObjectConstructor
 {
+#if RCCPP_ALLOCATOR_INTERFACE
+	// Memory management
+	virtual IObjectAllocator* GetAllocator() const = 0;
+	virtual void SetAllocator( IObjectAllocator* pAllocator ) = 0;
+#endif
+
 	virtual IObject* Construct() = 0;
 	virtual void ConstructNull() = 0;	//for use in object replacement, ensures a deleted object can be replaced
+	virtual void Destroy( IObject* object ) = 0;
 	virtual const char* GetName() = 0;
 	virtual const char* GetFileName() = 0;
 	virtual const char* GetCompiledPath() = 0;
-	virtual size_t GetMaxNumIncludeFiles() const = 0;
-	virtual const char* GetIncludeFile( size_t Num_ ) const = 0;
-	virtual size_t GetMaxNumLinkLibraries() const = 0;
-	virtual const char* GetLinkLibrary( size_t Num_ ) const = 0;
-	virtual size_t GetMaxNumSourceDependencies() const = 0;
-	virtual SourceDependencyInfo GetSourceDependency( size_t Num_ ) const = 0;
+	virtual size_t GetMaxNumTrackingInfo() const = 0;
+	virtual RuntimeTackingInfo GetTrackingInfo( size_t Num_ ) const = 0;
     virtual void SetProjectId( unsigned short projectId_ ) = 0;
     virtual unsigned short GetProjectId() const = 0;
 
@@ -103,6 +120,7 @@ struct IPerModuleInterface
 	virtual std::vector<IObjectConstructor*>& GetConstructors() = 0;
     virtual void SetProjectIdForAllConstructors( unsigned short projectId_ ) = 0;
 	virtual void SetSystemTable( SystemTable* pSystemTable ) = 0;
+	virtual void SetRuntimeObjectSystem( IRuntimeObjectSystem* pIRuntimeObjectSystem_ ) = 0;
 	virtual const std::vector<const char*>& GetRequiredSourceFiles() const = 0;
 	virtual void AddRequiredSourceFiles( const char* file_ ) = 0;
     virtual void SetModuleFileName( const char* name ) = 0;

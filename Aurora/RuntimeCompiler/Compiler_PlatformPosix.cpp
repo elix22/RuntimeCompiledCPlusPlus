@@ -23,6 +23,8 @@
 //
 //
 
+#ifndef _WIN32
+
 #include "Compiler.h"
 
 #include <string>
@@ -38,7 +40,7 @@
 #include "ICompilerLogger.h"
 
 using namespace std;
-const char	c_CompletionToken[] = "_COMPLETION_TOKEN_" ;
+//const char	c_CompletionToken[] = "_COMPLETION_TOKEN_" ;
 
 class PlatformCompilerImplData
 {
@@ -126,7 +128,7 @@ void Compiler::Initialise( ICompilerLogger * pLogger )
 
 void Compiler::RunCompile( const std::vector<FileSystemUtils::Path>&	filesToCompile_,
 			   const CompilerOptions&			compilerOptions_,
-			   std::vector<FileSystemUtils::Path>		linkLibraryList_,
+			   const std::vector<FileSystemUtils::Path>&		linkLibraryList_,
 			    const FileSystemUtils::Path&		moduleName_ )
 
 {
@@ -212,6 +214,7 @@ void Compiler::RunCompile( const std::vector<FileSystemUtils::Path>&	filesToComp
 		compileString += "-Os ";
 		break;
 	case RCCPPOPTIMIZATIONLEVEL_NOT_SET:;
+	case RCCPPOPTIMIZATIONLEVEL_SIZE:;
 	}
     
 	// Check for intermediate directory, create it if required
@@ -231,9 +234,18 @@ void Compiler::RunCompile( const std::vector<FileSystemUtils::Path>&	filesToComp
         compileString = "cd \"" + compilerOptions_.intermediatePath.m_string + "\"\n" + compileString + " --save-temps ";
 		output = compilerOptions_.intermediatePath / "a.out";
 		bCopyOutput = true;
+#ifndef __clang__
+		// By default, GCC adds a 'a-' (because our output is a.out) prefix to the intermediary files by default, making us not find the .o files later when recompiling.
+		compileString += "-dumpbase '' ";
+#endif
+
 	}
-	
-	
+
+    // defines
+#if RCCPP_ALLOCATOR_INTERFACE
+    compileString += "-DRCCPP_ALLOCATOR_INTERFACE=1 ";
+#endif
+
     // include directories
     for( size_t i = 0; i < includeDirList.size(); ++i )
 	{
@@ -288,3 +300,6 @@ void Compiler::RunCompile( const std::vector<FileSystemUtils::Path>&	filesToComp
 
     execl("/bin/sh", "sh", "-c", compileString.c_str(), (const char*)NULL);
 }
+
+
+#endif // #ifndef _WIN32

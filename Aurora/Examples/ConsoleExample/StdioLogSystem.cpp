@@ -24,6 +24,7 @@
 #include <iostream>
 
 #ifdef _WIN32
+    #include "../../RuntimeCompiler/FileSystemUtils.h"
     #include "Windows.h"
 	#pragma warning( disable : 4996 4800 )
 #endif
@@ -34,6 +35,7 @@ void StdioLogSystem::LogError(const char * format, ...)
 	va_list args;
 	va_start(args, format);
 	LogInternal(format, args);
+	va_end(args);
 }
 
 void StdioLogSystem::LogWarning(const char * format, ...)
@@ -41,6 +43,7 @@ void StdioLogSystem::LogWarning(const char * format, ...)
 	va_list args;
 	va_start(args, format);
 	LogInternal(format, args);
+	va_end(args);
 }
 
 void StdioLogSystem::LogInfo(const char * format, ...)
@@ -48,6 +51,7 @@ void StdioLogSystem::LogInfo(const char * format, ...)
 	va_list args;
 	va_start(args, format);
 	LogInternal(format, args);
+	va_end(args);
 }
 void StdioLogSystem::LogInternal(const char * format, va_list args)
 {
@@ -57,6 +61,9 @@ void StdioLogSystem::LogInternal(const char * format, va_list args)
 
 	std::cout << m_buff;
 #ifdef _WIN32
-	OutputDebugStringA( m_buff );
+    std::string temp = m_buff;
+    // convert from utf-8 to Wide char
+    std::wstring tempW = FileSystemUtils::_Win32Utf8ToUtf16( temp );
+	OutputDebugStringW( tempW.c_str() );
 #endif
 }
